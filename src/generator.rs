@@ -21,19 +21,20 @@ pub struct CrosswordGenerator<CharT: CrosswordChar, StrT: CrosswordString<CharT>
     pub settings: CrosswordGeneratorSettings,
 }
 
-impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<CharT, StrT>
+impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> CrosswordGenerator<CharT, StrT>
 {
     pub fn crossword_stream(&self) -> CrosswordStream<CharT, StrT>
     {  
         let gen = self.clone();
-
+        
         let gen_func = move |mut rr: Receiver<CrosswordGenerationRequest>, cs: Sender<Crossword<CharT, StrT>>| async move
         {
 
             let mut current_request = CrosswordGenerationRequest::Count(0);
             let mut current_crossword = Crossword::new(gen.settings.word_compatibility_settings.clone());
             let mut full_created_crossword_bases = BTreeSet::new();
-            CrosswordGenerator::<CharT, StrT>::generator_impl(&gen.settings, &mut rr, &cs, &mut current_request, &mut current_crossword, &gen.words, &mut full_created_crossword_bases).await
+            let remaine_words = gen.words.iter().map(|w| Word::<CharT, &[CharT]>::new(w.value.as_ref(), w.dir.clone())).collect();
+            CrosswordGenerator::<CharT, StrT>::generator_impl(&gen.settings, &mut rr, &cs, &mut current_request, &mut current_crossword, &remaine_words, &mut full_created_crossword_bases).await
                
         };
 
@@ -41,7 +42,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
     }
 
     #[async_recursion]
-    async fn generator_impl(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, StrT>, remained_words: &BTreeSet<Word<CharT, StrT>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, StrT>>)  
+    async fn generator_impl<'a>(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, &'a [CharT]>, remained_words: &BTreeSet<Word<CharT, &'a [CharT]>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, &'a [CharT]>>)  
     {
         if !gen_settings.crossword_settings.check_nonrecoverables(current_crossword) 
         {
@@ -66,7 +67,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
                     }
                 }
 
-                cs.send(current_crossword.clone()).await.unwrap();
+                cs.send(current_crossword.clone().convert_to(|w| w.to_owned().into_iter().collect())).await.unwrap();
                 if let CrosswordGenerationRequest::Count(count) = *current_request { *current_request = CrosswordGenerationRequest::Count(count - 1) }
             }
             return;
@@ -83,7 +84,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
 
                 if let CrosswordGenerationRequest::Stop = current_request { return; }
                 
-                let to_remove: Vec<Crossword<CharT, StrT>> = full_created_crossword_bases.iter().filter_map(|cw| cw.contains_crossword(&current_crossword).then_some(cw.clone())).collect();
+                let to_remove: Vec<Crossword<CharT, &[CharT]>> = full_created_crossword_bases.iter().filter_map(|cw| cw.contains_crossword(&current_crossword).then_some(cw.clone())).collect();
                 to_remove.into_iter().for_each(|cw| {full_created_crossword_bases.remove(&cw);});
                 
                 full_created_crossword_bases.insert(current_crossword.clone());

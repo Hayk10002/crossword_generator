@@ -6,12 +6,12 @@ use tokio_stream::StreamExt;
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("crossword");
 
-    group.bench_function(BenchmarkId::new("Iterative", ""),
+    group.bench_function(BenchmarkId::new("", ""),
         |b| b.iter(||
         {
-            let mut generator = CrosswordGenerator::<u8, String>::default();
+            let mut generator = CrosswordGenerator::<u8, Vec<u8>>::default();
             generator.settings = CrosswordGeneratorSettings::default();
-            generator.words = vec!["Hello", "world", "asdf", "myname", "sesame", "yeeee", "nouyt"].into_iter().map(|s| Word::new(s.to_lowercase(), None)).collect();
+            generator.words = vec!["Hello", "world", "asdf", "myname", "sesame", "yeeee", "nouyt"].into_iter().map(|s| Word::new(<String as AsRef<[u8]>>::as_ref(&s.to_lowercase()).to_owned(), None)).collect();
             
             let rt = Runtime::new().unwrap();
 
@@ -30,4 +30,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
-// Stream, without &StrT optimistion      188.33 ms
+// NOTEBOOK BATTERY ON
+// Stream, without &[CharT] optimisation       124.33 ms
+// Stream, with &[CharT] optimisation          60.610 ms

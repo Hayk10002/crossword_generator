@@ -175,12 +175,26 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         self.words.iter().filter(|w| w.value == *word).next()
     }
 
-    pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
+    fn add_word_unnormalized(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
     {
         if let Some(_) = self.find_word(&word.value) { Err(CrosswordError::WordAlreadyExists) }
         else if !self.can_word_be_added(&word) { Err(CrosswordError::CantAddWord) }
-        else { self.words.insert(word); self.normalize(); Ok(()) } 
+        else { self.words.insert(word); Ok(()) }
+    }
+
+    pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
+    {
+        self.add_word_unnormalized(word)?;
+        self.normalize();
+        Ok(())
     }  
+
+    pub fn add_words(&mut self, mut words: impl Iterator<Item = PlacedWord<CharT, StrT>>) -> Result<(), CrosswordError>
+    {
+        let res = words.try_for_each(|w| self.add_word_unnormalized(w));
+        self.normalize();
+        res
+    }
 
     pub fn remove_word(&mut self, word: &StrT) -> bool
     {
@@ -286,6 +300,19 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     pub fn into_iter(self) -> impl Iterator<Item = PlacedWord<CharT, StrT>>
     {
         self.words.into_iter()
+    }
+
+    pub fn convert_to<StrT2: CrosswordString<CharT>>(self, f: impl Fn(StrT) -> StrT2) -> Crossword<CharT, StrT2>
+    {
+        let mut res = Crossword::default();
+
+        res.add_words(self
+            .into_iter()
+            .map(|w| 
+                PlacedWord::new(f(w.value), w.position, w.direction)
+            )).unwrap();
+    
+        res
     }
 }
 
@@ -408,6 +435,7 @@ mod tests {
             PlacedWord::new(new_word.value, Position { x: 4, y: -4 }, Direction::Down),
             ].into_iter().collect());
     }
+
 
 
 }

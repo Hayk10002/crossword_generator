@@ -11,18 +11,19 @@ pub fn add(left: usize, right: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use self::{generator::{CrosswordGenerationRequest, CrosswordGenerator, CrosswordGeneratorSettings}, word::Word};
     use tokio_stream::StreamExt;
+
+    use self::{generator::{CrosswordGenerationRequest, CrosswordGenerator, CrosswordGeneratorSettings}, word::Word};
 
     use super::*;
 
     #[tokio::test]
     async fn it_works() {
-        let gen = CrosswordGenerator::<u8, String>
+        let gen = CrosswordGenerator::<u8, Vec<u8>>
         {
-            words: [Word::<u8, String>::new("a".to_owned(), None),
-                    Word::<u8, String>::new("accb".to_owned(), None),
-                    Word::<u8, String>::new("b".to_owned(), None)].into_iter().collect(),
+            words: ["a",
+                    "accb",
+                    "b"].into_iter().map(|s| Word::<u8, Vec<u8>>::new(<String as AsRef<[u8]>>::as_ref(&s.to_lowercase()).to_owned(), None)).collect(),
             settings: CrosswordGeneratorSettings::default()
         };
 
@@ -34,7 +35,7 @@ mod tests {
         let mut crosswords = vec![];
         while let Some(cw) = str.next().await
         {
-            crosswords.push(cw);
+            crosswords.push(cw.convert_to::<String>(|w| String::from_utf8(w).unwrap()));
         }
         
         println!("{}", serde_json::to_string_pretty(&crosswords).unwrap());
