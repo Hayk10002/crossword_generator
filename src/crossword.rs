@@ -1,4 +1,5 @@
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, default};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use crate::{placed_word::PlacedWord, utils::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
 
@@ -11,17 +12,49 @@ pub enum CrosswordError
     WordAlreadyExists
 }
 
-pub trait CrosswordConstraint<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+pub enum CrosswordConstraint
 {
-    fn check(&self, crossword: Crossword<CharT, StrT>) -> bool;
-    fn recoverable(&self) -> bool;
+    None
 }
 
-pub struct CrosswordSettings<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
+impl CrosswordConstraint
 {
-    pub constraints: Vec<Box<dyn CrosswordConstraint<CharT, StrT>>>
+    fn check<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
+    {
+        match self
+        {
+            &CrosswordConstraint::None => true
+        }
+    }
+    fn recoverable(&self) -> bool
+    {
+        match self
+        {
+            &CrosswordConstraint::None => false
+        }
+    }
+}
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+pub struct CrosswordSettings
+{
+    pub constraints: Vec<CrosswordConstraint>
 }
 
+impl CrosswordSettings
+{
+    pub fn check_recoverables<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
+    {
+        self.constraints.iter().filter(|constr| constr.recoverable()).all(|constr| constr.check(crossword))
+    }
+
+    pub fn check_nonrecoverables<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
+    {
+        self.constraints.iter().filter(|constr| !constr.recoverable()).all(|constr| constr.check(crossword))
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub struct WordCompatibilitySettings
 {
     pub side_by_side: bool,
@@ -62,10 +95,25 @@ impl WordCompatibilitySettings
     }
 }
 
+impl Default for WordCompatibilitySettings 
+{
+    fn default() -> Self 
+    {
+        return WordCompatibilitySettings 
+        {
+            side_by_side: false,
+            head_by_head: false,
+            side_by_head: false,
+            corner_by_corner: true
+        }    
+    }
+}
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     words: BTreeSet<PlacedWord<CharT, StrT>>,
-    word_compatibility_settings: WordCompatibilitySettings
+    #[serde(skip)]
+    pub word_compatibility_settings: WordCompatibilitySettings
 }
 
 impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
@@ -91,6 +139,11 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         self.words = new_set;
     }
 
+    pub fn new(word_compatibility_settings: WordCompatibilitySettings) -> Crossword<CharT, StrT>
+    {
+        Crossword{ word_compatibility_settings: word_compatibility_settings, ..Default::default() }
+    }
+
     pub fn can_word_be_added(&self, word: &PlacedWord<CharT, StrT>) -> bool
     {
         self.words.iter().all(|w| self.word_compatibility_settings.are_words_compatible(w, word))
@@ -108,14 +161,17 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         else { self.words.insert(word); self.normalize(); Ok(()) } 
     }  
 
-    pub fn remove_word(&mut self, word: &StrT)
+    pub fn remove_word(&mut self, word: &StrT) -> bool
     {
         if let Some(word) = self.find_word(word).and_then(|w| Some(w.clone()))
         {
             self.words.remove(&word);
 
             self.normalize();
+
+            true
         }
+        else { false }
     }
 
     pub fn contains_crossword(&self, other: &Crossword<CharT, StrT>) -> bool 
@@ -151,7 +207,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         true
     }
 
-    pub fn calculate_possible_ways_to_add_word(&self, word: &Word<CharT, StrT>, word_compatibility_settings: &WordCompatibilitySettings) -> BTreeSet<PlacedWord<CharT, StrT>>
+    pub fn calculate_possible_ways_to_add_word(&self, word: &Word<CharT, StrT>) -> BTreeSet<PlacedWord<CharT, StrT>>
     {
         if self.words.is_empty()
         {
@@ -183,21 +239,154 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     }
 
     pub fn generate_char_table(&self) ->Vec<Vec<CharT>>
+    {
+        let size = self.get_size();
+        let mut table = vec![vec![CharT::default(); size.0 as usize]; size.1 as usize];
+        for word in self.words.iter()
         {
-            let size = self.get_size();
-            let mut table = vec![vec![CharT::default(); size.0 as usize]; size.1 as usize];
-            for word in self.words.iter()
+            for (index, char) in word.value.as_ref().iter().enumerate()
             {
-                for (index, char) in word.value.as_ref().iter().enumerate()
+                match word.direction
                 {
-                    match word.direction
-                    {
-                        Direction::Right => table[word.position.y as usize][word.position.x as usize + index] = char.clone(),
-                        Direction::Down => table[word.position.y as usize + index][word.position.x as usize] = char.clone(),
-                    }
+                    Direction::Right => table[word.position.y as usize][word.position.x as usize + index] = char.clone(),
+                    Direction::Down => table[word.position.y as usize + index][word.position.x as usize] = char.clone(),
                 }
             }
-        
-            table
         }
+    
+        table
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &PlacedWord<CharT, StrT>>
+    {
+        self.words.iter()
+    }
+
+    pub fn into_iter(self) -> impl Iterator<Item = PlacedWord<CharT, StrT>>
+    {
+        self.words.into_iter()
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    
+
+    use super::*;
+
+    #[test]
+    fn test_crossword_contains_crossword() {
+        let mut cw = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );   
+        cw.add_word(PlacedWord::<u8, &str>::new( "hello", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "cat", Position { x: 2, y: 2 }, Direction::Right)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 3, y: 2 }, Direction::Down)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "toy", Position { x: 4, y: 2 }, Direction::Down)).unwrap();
+
+        
+        let mut cw1 = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );
+        cw1.add_word(PlacedWord::<u8, &str>::new( "hello", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw1.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+        cw1.add_word(PlacedWord::<u8, &str>::new( "cat", Position { x: 2, y: 2 }, Direction::Right)).unwrap();
+        cw1.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 3, y: 2 }, Direction::Down)).unwrap();
+        cw1.add_word(PlacedWord::<u8, &str>::new( "toy", Position { x: 4, y: 2 }, Direction::Down)).unwrap();
+
+        let mut cw2 = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );   
+        cw2.add_word(PlacedWord::<u8, &str>::new( "cat", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw2.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 1, y: 0 }, Direction::Down)).unwrap();
+        cw2.add_word(PlacedWord::<u8, &str>::new( "toy", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+
+        let mut cw3 = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );   
+        cw3.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 0, y: 0 }, Direction::Down)).unwrap();
+        cw3.add_word(PlacedWord::<u8, &str>::new( "toy", Position { x: 1, y: -1 }, Direction::Down)).unwrap();
+
+        assert_eq!([cw.contains_crossword(&cw1), cw.contains_crossword(&cw2), cw.contains_crossword(&cw3)], [true, true, false]);
+    }
+
+    #[test]
+    fn test_crossword_remove_word() {
+        let mut cw = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );   
+        cw.add_word(PlacedWord::<u8, &str>::new( "hello", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "cat", Position { x: 2, y: 2 }, Direction::Right)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 3, y: 2 }, Direction::Down)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "toy", Position { x: 4, y: 2 }, Direction::Down)).unwrap();
+        
+        cw.remove_word(&"toy");
+
+        let mut cw_rm = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                ..Default::default()
+            }
+        );   
+        cw_rm.add_word(PlacedWord::<u8, &str>::new( "hello", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw_rm.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+        cw_rm.add_word(PlacedWord::<u8, &str>::new( "cat", Position { x: 2, y: 2 }, Direction::Right)).unwrap();
+        cw_rm.add_word(PlacedWord::<u8, &str>::new( "and", Position { x: 3, y: 2 }, Direction::Down)).unwrap();
+
+        assert_eq!(cw, cw_rm);
+    }
+
+    #[test]
+    fn test_crossword_calculate_possible_ways_to_add_word() {
+        let mut cw = Crossword::new(
+            WordCompatibilitySettings
+            {
+                side_by_side: true,
+                side_by_head: true,
+                ..Default::default()
+            }
+        );   
+        cw.add_word(PlacedWord::<u8, &str>::new( "hello", Position { x: 0, y: 0 }, Direction::Right)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
+        cw.add_word(PlacedWord::<u8, &str>::new( "tac", Position { x: 0, y: 2 }, Direction::Right)).unwrap();
+
+        let new_word = Word::new("hatlo", None, None);
+
+        assert_eq!(cw.calculate_possible_ways_to_add_word(&new_word), vec![
+            PlacedWord::new(new_word.value, Position { x: 0, y: 0 }, Direction::Down),
+            PlacedWord::new(new_word.value, Position { x: 1, y: 1 }, Direction::Down),   //|-
+            PlacedWord::new(new_word.value, Position { x: 1, y: 3 }, Direction::Right),  //||
+            PlacedWord::new(new_word.value, Position { x: 3, y: -3 }, Direction::Down),  //||
+            PlacedWord::new(new_word.value, Position { x: -1, y: 4 }, Direction::Right),
+            PlacedWord::new(new_word.value, Position { x: -2, y: 1 }, Direction::Right), //||
+            PlacedWord::new(new_word.value, Position { x: 4, y: -4 }, Direction::Down),
+            ].into_iter().collect());
+    }
+
+
 }

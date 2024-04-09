@@ -44,6 +44,7 @@ pub struct Word<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     pub value: StrT,
     pub dir: Option<Direction>,
+    #[serde(skip)]
     character_type: PhantomData<CharT>
 } 
 
@@ -53,12 +54,4 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Word<CharT, StrT>
     {
         Word { value: val, dir: dir, character_type: PhantomData }
     } 
-}
-
-
-
-
-fn test()
-{
-    let x = Word::<u8, String>::new("Helloworld".to_owned(), None, None);
 }
