@@ -366,8 +366,8 @@ mod tests {
         let mut cw = Crossword::new(
             WordCompatibilitySettings
             {
-                side_by_side: true,
-                side_by_head: true,
+                side_by_side: true, // |-
+                side_by_head: true, // ||
                 ..Default::default()
             }
         );   
