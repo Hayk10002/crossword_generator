@@ -1,12 +1,11 @@
-use std::{collections::BTreeSet, future::Future, pin::Pin, process::Output, task::{Context, Poll}};
+use std::{collections::BTreeSet, future::Future, pin::Pin, task::{Context, Poll}};
 
-use async_fn_traits::AsyncFnOnce2;
 use async_recursion::async_recursion;
 use serde::{Deserialize, Serialize};
-use tokio::{sync::mpsc::{self, error::TryRecvError, Receiver, Sender}, task};
+use tokio::{sync::mpsc::{self, Receiver, Sender}, task};
 use tokio_stream::Stream;
 
-use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}, placed_word::PlacedWord, utils::{CrosswordChar, CrosswordString}, word::Word};
+use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}, utils::{CrosswordChar, CrosswordString}, word::Word};
 
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordGeneratorSettings
@@ -40,7 +39,6 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
 
         CrosswordStream::new(gen_func)
     }
-    // generate_crosswords(),
 
     #[async_recursion]
     async fn generator_impl(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, StrT>, remained_words: &BTreeSet<Word<CharT, StrT>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, StrT>>)  
@@ -64,11 +62,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
                     match rr.recv().await
                     {
                         None | Some(CrosswordGenerationRequest::Stop) => { *current_request = CrosswordGenerationRequest::Stop; return },
-                        Some(CrosswordGenerationRequest::Count(count)) => *current_request = CrosswordGenerationRequest::Count(count)
+                        Some(req) => *current_request = req
                     }
                 }
 
                 cs.send(current_crossword.clone()).await.unwrap();
+                if let CrosswordGenerationRequest::Count(count) = *current_request { *current_request = CrosswordGenerationRequest::Count(count - 1) }
             }
             return;
         }
@@ -103,7 +102,8 @@ pub enum CrosswordGenerationRequest
 {
     #[default]
     Stop,
-    Count(u32)
+    Count(u32),
+    Endless
 }
 
 pub struct CrosswordStream<CharT: CrosswordChar + 'static, StrT: CrosswordString<CharT> + 'static>

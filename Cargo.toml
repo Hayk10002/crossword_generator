@@ -15,3 +15,10 @@ tokio-stream = "0.1.15"
 tokio = { version = "1.36.0", features = ["full"]}
 async-recursion = "1.1.0"
 async_fn_traits = "0.1.1"
+
+[dev-dependencies]
+criterion = "0.5.1"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

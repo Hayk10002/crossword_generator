@@ -1,8 +1,8 @@
-mod utils;
-mod word;
-mod placed_word;
-mod crossword;
-mod generator;
+pub mod utils;
+pub mod word;
+pub mod placed_word;
+pub mod crossword;
+pub mod generator;
 
 
 pub fn add(left: usize, right: usize) -> usize {
@@ -20,9 +20,9 @@ mod tests {
     async fn it_works() {
         let gen = CrosswordGenerator::<u8, String>
         {
-            words: [Word::<u8, String>::new("a".to_owned(), None, None),
-                    Word::<u8, String>::new("accb".to_owned(), None, None),
-                    Word::<u8, String>::new("b".to_owned(), None, None)].into_iter().collect(),
+            words: [Word::<u8, String>::new("a".to_owned(), None),
+                    Word::<u8, String>::new("accb".to_owned(), None),
+                    Word::<u8, String>::new("b".to_owned(), None)].into_iter().collect(),
             settings: CrosswordGeneratorSettings::default()
         };
 

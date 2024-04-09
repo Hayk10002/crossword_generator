@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, default};
+use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use crate::{placed_word::PlacedWord, utils::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
@@ -15,7 +15,10 @@ pub enum CrosswordError
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum CrosswordConstraint
 {
-    None
+    None,
+    MaxLength(u16),
+    MaxHeight(u16),
+    MaxArea(u32)
 }
 
 impl CrosswordConstraint
@@ -24,14 +27,32 @@ impl CrosswordConstraint
     {
         match self
         {
-            &CrosswordConstraint::None => true
+            &CrosswordConstraint::None => true,
+            &CrosswordConstraint::MaxLength(length) => 
+            {
+                let size = crossword.get_size();
+                return size.0 <= length
+            }
+            &CrosswordConstraint::MaxHeight(height) => 
+            {
+                let size = crossword.get_size();
+                return size.1 <= height
+            }
+            &CrosswordConstraint::MaxArea(area) => 
+            {
+                let size = crossword.get_size();
+                return size.0 as u32 * size.1 as u32 <= area
+            }
         }
     }
     fn recoverable(&self) -> bool
     {
         match self
         {
-            &CrosswordConstraint::None => false
+            &CrosswordConstraint::None => false,
+            &CrosswordConstraint::MaxLength(_) => false,
+            &CrosswordConstraint::MaxHeight(_) => false,
+            &CrosswordConstraint::MaxArea(_) => false,
         }
     }
 }
@@ -375,7 +396,7 @@ mod tests {
         cw.add_word(PlacedWord::<u8, &str>::new( "local", Position { x: 2, y: 0 }, Direction::Down)).unwrap();
         cw.add_word(PlacedWord::<u8, &str>::new( "tac", Position { x: 0, y: 2 }, Direction::Right)).unwrap();
 
-        let new_word = Word::new("hatlo", None, None);
+        let new_word = Word::new("hatlo", None);
 
         assert_eq!(cw.calculate_possible_ways_to_add_word(&new_word), vec![
             PlacedWord::new(new_word.value, Position { x: 0, y: 0 }, Direction::Down),

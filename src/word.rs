@@ -50,7 +50,7 @@ pub struct Word<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 
 impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Word<CharT, StrT>
 {
-    pub fn new(val: StrT, pos: Option<Position>, dir: Option<Direction>) -> Word<CharT, StrT>
+    pub fn new(val: StrT, dir: Option<Direction>) -> Word<CharT, StrT>
     {
         Word { value: val, dir: dir, character_type: PhantomData }
     } 
