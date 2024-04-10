@@ -22,19 +22,19 @@ impl Direction
 {
     pub fn opposite(&self) -> Direction
     {
-        match self
+        match *self
         {
-            &Direction::Right => Direction::Down,
-            &Direction::Down => Direction::Right,
+            Direction::Right => Direction::Down,
+            Direction::Down => Direction::Right,
         }
     }
 
     pub fn get_dir_num_values(&self) -> (u16, u16)
     {
-        match self
+        match *self
         {
-            &Direction::Right => (1, 0),
-            &Direction::Down => (0, 1),
+            Direction::Right => (1, 0),
+            Direction::Down => (0, 1),
         }
     }
 }
@@ -52,6 +52,6 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Word<CharT, StrT>
 {
     pub fn new(val: StrT, dir: Option<Direction>) -> Word<CharT, StrT>
     {
-        Word { value: val, dir: dir, character_type: PhantomData }
+        Word { value: val, dir, character_type: PhantomData }
     } 
 }

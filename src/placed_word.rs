@@ -31,10 +31,8 @@ impl WordBoundingBox
 
     fn corners_touch(&self, other: &WordBoundingBox) -> bool
     {
-        (self.x == other.x + other.w as i16 && self.y == other.y + other.h as i16) ||
-        (self.x + self.w as i16 == other.x && self.y == other.y + other.h as i16) ||
-        (self.x + self.w as i16 == other.x && self.y + self.h as i16 == other.y) ||
-        (self.x == other.x + other.w as i16 && self.y + self.h as i16 == other.y)
+        (self.y + self.h as i16 == other.y || self.y == other.y + other.h as i16) && 
+        (self.x + self.w as i16 == other.x || self.x == other.x + other.w as i16)
     }
 
 }

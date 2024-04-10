@@ -25,34 +25,34 @@ impl CrosswordConstraint
 {
     fn check<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
     {
-        match self
+        match *self
         {
-            &CrosswordConstraint::None => true,
-            &CrosswordConstraint::MaxLength(length) => 
+            CrosswordConstraint::None => true,
+            CrosswordConstraint::MaxLength(length) => 
             {
                 let size = crossword.get_size();
-                return size.0 <= length
+                size.0 <= length
             }
-            &CrosswordConstraint::MaxHeight(height) => 
+            CrosswordConstraint::MaxHeight(height) => 
             {
                 let size = crossword.get_size();
-                return size.1 <= height
+                size.1 <= height
             }
-            &CrosswordConstraint::MaxArea(area) => 
+            CrosswordConstraint::MaxArea(area) => 
             {
                 let size = crossword.get_size();
-                return size.0 as u32 * size.1 as u32 <= area
+                size.0 as u32 * size.1 as u32 <= area
             }
         }
     }
     fn recoverable(&self) -> bool
     {
-        match self
+        match *self
         {
-            &CrosswordConstraint::None => false,
-            &CrosswordConstraint::MaxLength(_) => false,
-            &CrosswordConstraint::MaxHeight(_) => false,
-            &CrosswordConstraint::MaxArea(_) => false,
+            CrosswordConstraint::None => false,
+            CrosswordConstraint::MaxLength(_) => false,
+            CrosswordConstraint::MaxHeight(_) => false,
+            CrosswordConstraint::MaxArea(_) => false,
         }
     }
 }
@@ -89,22 +89,22 @@ impl WordCompatibilitySettings
     /// Checks if two [words](Word) are compatible
     pub fn are_words_compatible<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, first: &PlacedWord<CharT, StrT>, second: &PlacedWord<CharT, StrT>) -> bool
     {
-        if first.corners_touch(&second) && !self.corner_by_corner { return false; }
+        if first.corners_touch(second) && !self.corner_by_corner { return false; }
 
         if first.direction == second.direction
         {
-            if first.head_touches_head(&second) && !self.head_by_head { return false; }
-            if first.side_touches_side(&second) && !self.side_by_side { return false; }
-            if first.intersects(&second) { return false; }
+            if first.head_touches_head(second) && !self.head_by_head { return false; }
+            if first.side_touches_side(second) && !self.side_by_side { return false; }
+            if first.intersects(second) { return false; }
 
             true
         }
         else
         {
-            if first.side_touches_head(&second) && !self.side_by_head { return false; }
-            if first.intersects(&second)
+            if first.side_touches_head(second) && !self.side_by_head { return false; }
+            if first.intersects(second)
             {
-                let (first_ind, second_ind) = first.get_intersection_indices(&second).unwrap();
+                let (first_ind, second_ind) = first.get_intersection_indices(second).unwrap();
                 let first_char = first.value.as_ref().iter().nth(first_ind as usize);
                 let second_char = second.value.as_ref().iter().nth(second_ind as usize);
         
@@ -120,7 +120,7 @@ impl Default for WordCompatibilitySettings
 {
     fn default() -> Self 
     {
-        return WordCompatibilitySettings 
+        WordCompatibilitySettings 
         {
             side_by_side: false,
             head_by_head: false,
@@ -162,7 +162,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 
     pub fn new(word_compatibility_settings: WordCompatibilitySettings) -> Crossword<CharT, StrT>
     {
-        Crossword{ word_compatibility_settings: word_compatibility_settings, ..Default::default() }
+        Crossword{ word_compatibility_settings, ..Default::default() }
     }
 
     pub fn can_word_be_added(&self, word: &PlacedWord<CharT, StrT>) -> bool
@@ -172,12 +172,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 
     pub fn find_word(&self, word: &StrT) -> Option<&PlacedWord<CharT, StrT>>
     {
-        self.words.iter().filter(|w| w.value == *word).next()
+        self.words.iter().find(|w| w.value == *word)
     }
 
     fn add_word_unnormalized(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
     {
-        if let Some(_) = self.find_word(&word.value) { Err(CrosswordError::WordAlreadyExists) }
+        if self.find_word(&word.value).is_some() { Err(CrosswordError::WordAlreadyExists) }
         else if !self.can_word_be_added(&word) { Err(CrosswordError::CantAddWord) }
         else { self.words.insert(word); Ok(()) }
     }
@@ -198,7 +198,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 
     pub fn remove_word(&mut self, word: &StrT) -> bool
     {
-        if let Some(word) = self.find_word(word).and_then(|w| Some(w.clone()))
+        if let Some(word) = self.find_word(word).cloned()
         {
             self.words.remove(&word);
 
@@ -216,7 +216,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         for other_word in other.words.iter()
         {
             let cur_word = self.find_word(&other_word.value);
-            if let None = cur_word
+            if cur_word.is_none()
             {
                 return false;
             }
@@ -292,16 +292,6 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         table
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &PlacedWord<CharT, StrT>>
-    {
-        self.words.iter()
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = PlacedWord<CharT, StrT>>
-    {
-        self.words.into_iter()
-    }
-
     pub fn convert_to<StrT2: CrosswordString<CharT>>(self, f: impl Fn(StrT) -> StrT2) -> Crossword<CharT, StrT2>
     {
         let mut res = Crossword::default();
@@ -316,6 +306,15 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     }
 }
 
+impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> IntoIterator for Crossword<CharT, StrT>
+{
+    type Item = PlacedWord<CharT, StrT>;
+    type IntoIter = <BTreeSet<PlacedWord<CharT, StrT>> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.words.into_iter()
+    }
+}
 
 
 #[cfg(test)]

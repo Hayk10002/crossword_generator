@@ -67,7 +67,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
                     }
                 }
 
-                cs.send(current_crossword.clone().convert_to(|w| w.to_owned().into_iter().collect())).await.unwrap();
+                cs.send(current_crossword.clone().convert_to(|w| w.iter().cloned().collect())).await.unwrap();
                 if let CrosswordGenerationRequest::Count(count) = *current_request { *current_request = CrosswordGenerationRequest::Count(count - 1) }
             }
             return;
@@ -84,7 +84,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
 
                 if let CrosswordGenerationRequest::Stop = current_request { return; }
                 
-                let to_remove: Vec<Crossword<CharT, &[CharT]>> = full_created_crossword_bases.iter().filter_map(|cw| cw.contains_crossword(&current_crossword).then_some(cw.clone())).collect();
+                let to_remove: Vec<Crossword<CharT, &[CharT]>> = full_created_crossword_bases.iter().filter_map(|cw| cw.contains_crossword(current_crossword).then_some(cw.clone())).collect();
                 to_remove.into_iter().for_each(|cw| {full_created_crossword_bases.remove(&cw);});
                 
                 full_created_crossword_bases.insert(current_crossword.clone());
