@@ -297,7 +297,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     }
 
     /// Adds the [word](PlacedWord) to the [crossword](Crossword)
-    /// [Normalizes](Crossword::normalize) the crossword after adding the word
+    /// Normalizes the crossword after adding the word
     /// 
     /// # Errors
     /// 
@@ -408,37 +408,37 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         true
     }
 
-        /// Returns all possible ways to add a [word](Word) into the [crossword](Crossword)
-        /// 
-        /// # Example
-        /// 
-        /// ```
-        /// # use crossword_generator::word::{Word, Direction, Position};
-        /// # use crossword_generator::placed_word::PlacedWord;
-        /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};         
-        /// # use std::collections::BTreeSet;   
-        ///
-        ///                                           
-        /// let mut cw = Crossword::default();                                                                  //     ---------
-        ///                                                                                                     //    |h e l l o|
-        /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
-        /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
-        ///                                                                                                     //    |    a    |
-        ///                                                                                                     //    |    l    |
-        ///                                                                                                     //     ---------
-        ///                                                                                         
-        /// assert_eq!(cw.calculate_possible_ways_to_add_word(&Word::new("halo", None)), 
-        ///             BTreeSet::from([
-        ///     PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down),
-        ///     PlacedWord::new("halo", Position { x: 4, y: -3 }, Direction::Down),
-        ///     PlacedWord::new("halo", Position { x: 0, y: 4 }, Direction::Right),
-        ///     PlacedWord::new("halo", Position { x: 1, y: 3 }, Direction::Right),
-        /// ]));
-        /// ```
-        /// 
-        /// 
-        /// 
-        /// Note that for example word halo on position 3 -2 and direction down is not allowed by a setting in word compatibility settings that forbids two words with same direction to be side to side
+    /// Returns all possible ways to add a [word](Word) into the [crossword](Crossword)
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Word, Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};         
+    /// # use std::collections::BTreeSet;   
+    ///
+    ///                                           
+    /// let mut cw = Crossword::default();                                                                  //     ---------
+    ///                                                                                                     //    |h e l l o|
+    /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
+    /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
+    ///                                                                                                     //    |    a    |
+    ///                                                                                                     //    |    l    |
+    ///                                                                                                     //     ---------
+    ///                                                                                         
+    /// assert_eq!(cw.calculate_possible_ways_to_add_word(&Word::new("halo", None)), 
+    ///             BTreeSet::from([
+    ///     PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down),
+    ///     PlacedWord::new("halo", Position { x: 4, y: -3 }, Direction::Down),
+    ///     PlacedWord::new("halo", Position { x: 0, y: 4 }, Direction::Right),
+    ///     PlacedWord::new("halo", Position { x: 1, y: 3 }, Direction::Right),
+    /// ]));
+    /// ```
+    /// 
+    /// 
+    /// 
+    /// Note that for example word halo on position 3 -2 and direction down is not allowed by a setting in word compatibility settings that forbids two words with same direction to be side to side
     pub fn calculate_possible_ways_to_add_word(&self, word: &Word<CharT, StrT>) -> BTreeSet<PlacedWord<CharT, StrT>>
     {
         if self.words.is_empty()
