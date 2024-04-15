@@ -38,6 +38,9 @@ impl WordBoundingBox
 }
 
 
+/// Represents a word inside of a [crossword](crate::crossword::Crossword), has [position](Position) and [direction](Direction)
+/// 
+/// Accepts two template parameters, that specify the type of individual characters in the word and the type of the word itself (for example u8 and &str, or if you want your crossword to consist of numbers, Digit and Vec\<Digit\> (where Digit is a type that accepts only numbers from 0 to 9))  
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct PlacedWord<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
@@ -54,16 +57,13 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
     {
         PlacedWord { value: val, position: pos, direction: dir, character_type: PhantomData }
     } 
-    fn value(&self) -> &[CharT]
-    {
-        self.value.as_ref()
-    }
+
     fn get_bounding_box(&self) -> WordBoundingBox
     {
         match self.direction 
         {
-            Direction::Right => WordBoundingBox { x: self.position.x, y: self.position.y, w: self.value().len() as u16, h: 1 },
-            Direction::Down => WordBoundingBox { x: self.position.x, y: self.position.y, w: 1, h: self.value().len() as u16 },
+            Direction::Right => WordBoundingBox { x: self.position.x, y: self.position.y, w: self.value.as_ref().len() as u16, h: 1 },
+            Direction::Down => WordBoundingBox { x: self.position.x, y: self.position.y, w: 1, h: self.value.as_ref().len() as u16 },
         }
     }
 
@@ -86,7 +86,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         }
     }
 
-    /// Returns true if two [words](Word) are intersecting 
+    /// Returns true if two [words](PlacedWord) are intersecting 
     pub fn intersects(&self, other: &PlacedWord<CharT, StrT>) -> bool 
     {
         self.get_bounding_box().intersects(&other.get_bounding_box())
@@ -97,13 +97,13 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         self.get_bounding_box().sides_touch(&other.get_bounding_box())
     }
 
-    /// Returns true if two [words](Word) are corner by corner (check [WordCompatibilitySettings::corner_by_corner])
+    /// Returns true if two [words](PlacedWord) are corner by corner (check [crate::crossword::WordCompatibilitySettings::corner_by_corner])
     pub fn corners_touch(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.get_bounding_box().corners_touch(&other.get_bounding_box())
     }
 
-    /// Returns true if two [words](Word) are side by side (check [WordCompatibilitySettings::side_by_side])
+    /// Returns true if two [words](PlacedWord) are side by side (check [crate::crossword::WordCompatibilitySettings::side_by_side])
     pub fn side_touches_side(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction == other.direction &&
@@ -111,14 +111,14 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         self.get_parallel_coordinate() != other.get_parallel_coordinate()
     }
 
-    /// Returns true if two [words](Word) are side by head (check [WordCompatibilitySettings::side_by_head])
+    /// Returns true if two [words](PlacedWord) are side by head (check [crate::crossword::WordCompatibilitySettings::side_by_head])
     pub fn side_touches_head(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction != other.direction &&
         self.sides_touch(other)
     }
 
-    /// Returns true if two [words](Word) are head by head (check [WordCompatibilitySettings::head_by_head])
+    /// Returns true if two [words](PlacedWord) are head by head (check [crate::crossword::WordCompatibilitySettings::head_by_head])
     pub fn head_touches_head(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction == other.direction &&
@@ -130,11 +130,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
     /// 
     /// Returns None otherwise
     /// 
-    /// ## Examples
+    /// # Example
     /// ```
-    /// # use crossword_generator::word::{Word, Position, Direction};
-    /// let w1 = Word{ position: Position{x: 0, y: 1}, direction: Direction::Right, value: "hello"};
-    /// let w2 = Word{ position: Position{x: 4, y: 0}, direction: Direction::Down, value: "world"};
+    /// # use crossword_generator::word::{Position, Direction};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// let w1 = PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 1}, Direction::Right);
+    /// let w2 = PlacedWord::<u8, &str>::new("world", Position{x: 4, y: 0}, Direction::Down);
     /// 
     /// //         w
     /// // h e l l o
@@ -161,11 +162,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
 
     /// Returns all possible ways to add another [word](Word) on top of this 
     /// 
-    /// ## Examples
+    /// # Example
     /// ```
     /// # use crossword_generator::word::{Word, Position, Direction};
+    /// # use crossword_generator::placed_word::PlacedWord;
     /// # use std::collections::BTreeSet;
-    /// let w1 = Word{ position: Position{x: 0, y: 3}, direction: Direction::Right, value: "hello"};
+    /// let w1 = PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 3}, Direction::Right);
     /// 
     /// 
     /// //     w w 
@@ -176,10 +178,10 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
     /// //         l
     /// //         d
     /// 
-    /// assert_eq!(w1.calculate_possible_ways_to_add_word("world"), BTreeSet::from([
-    ///     Word{ position: Position{x: 2, y: 0}, direction: Direction::Down, value: "world"},
-    ///     Word{ position: Position{x: 3, y: 0}, direction: Direction::Down, value: "world"},
-    ///     Word{ position: Position{x: 4, y: 2}, direction: Direction::Down, value: "world"}
+    /// assert_eq!(w1.calculate_possible_ways_to_add_word(&Word::<u8, &str>::new("world", None)), BTreeSet::from([
+    ///     PlacedWord::<u8, &str>::new("world", Position{x: 2, y: 0}, Direction::Down),
+    ///     PlacedWord::<u8, &str>::new("world", Position{x: 3, y: 0}, Direction::Down),
+    ///     PlacedWord::<u8, &str>::new("world", Position{x: 4, y: 2}, Direction::Down)
     /// ]));
     ///
     /// ```

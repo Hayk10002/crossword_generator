@@ -7,6 +7,7 @@ use tokio_stream::Stream;
 
 use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}, utils::{CrosswordChar, CrosswordString}, word::Word};
 
+/// Represents all settings for a [generator](CrosswordGenerator)
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordGeneratorSettings
 {
@@ -14,6 +15,42 @@ pub struct CrosswordGeneratorSettings
     pub word_compatibility_settings: WordCompatibilitySettings
 }
 
+/// Represents a crossword generator, runs in an async runtime
+/// 
+/// # Example
+/// ```
+/// use crossword_generator::generator::{CrosswordGenerator, CrosswordGeneratorSettings, CrosswordGenerationRequest};
+/// use crossword_generator::crossword::Crossword;
+/// use crossword_generator::placed_word::PlacedWord;
+/// use crossword_generator::word::{Direction, Position, Word};
+/// 
+/// use tokio_stream::StreamExt;
+/// 
+/// #[tokio::main]
+/// async fn main() 
+/// {
+/// 
+///     let mut generator = CrosswordGenerator::<u8, Vec<u8>>::default();
+///     generator.settings = CrosswordGeneratorSettings::default();
+///     generator.words = vec!["Hello", "world"].into_iter().map(|s| Word::new(<String as AsRef<[u8]>>::as_ref(&s.to_lowercase()).to_owned(), None)).collect();
+///      
+///     let str = generator.crossword_stream();
+///     str.request_crossword(CrosswordGenerationRequest::Count(2)).await;
+///     str.request_crossword(CrosswordGenerationRequest::Stop).await;
+///     let crosswords: Vec<Crossword<u8, String>> = str.map(|cw| cw.convert_to(|w| String::from_utf8(w).unwrap())).collect().await;
+///     
+///     let mut cw1 = Crossword::default();
+///     let mut cw2 = Crossword::default();
+/// 
+///     cw1.add_words([PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right),
+///                    PlacedWord::new("world".to_owned(), Position{ x: 2, y: 0 }, Direction::Down)].into_iter()).unwrap();
+///     
+///     cw2.add_words([PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right),
+///                    PlacedWord::new("world".to_owned(), Position{ x: 3, y: 0 }, Direction::Down)].into_iter()).unwrap();
+/// 
+///     assert_eq!(crosswords, vec![cw1, cw2])
+/// }
+/// ```
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordGenerator<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
@@ -44,7 +81,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
     #[async_recursion]
     async fn generator_impl<'a>(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, &'a [CharT]>, remained_words: &BTreeSet<Word<CharT, &'a [CharT]>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, &'a [CharT]>>)  
     {
-        if !gen_settings.crossword_settings.check_nonrecoverables(current_crossword) 
+        if !gen_settings.crossword_settings.check_nonrecoverables_constraints(current_crossword) 
         {
             return; 
         }
@@ -56,7 +93,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
         
         if remained_words.is_empty()
         {
-            if gen_settings.crossword_settings.check_recoverables(current_crossword) 
+            if gen_settings.crossword_settings.check_recoverable_constraints(current_crossword) 
             {
                 while let CrosswordGenerationRequest::Count(0) = current_request
                 {
@@ -98,13 +135,18 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
 
 }
 
+
+/// Represents a request to [CrosswordStream] for generating crosswords
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub enum CrosswordGenerationRequest
 {
+    /// Request to stop the crossword generation
     #[default]
     Stop,
+    /// Request for some count of crosswords to generate
     Count(u32),
-    Endless
+    /// Request for generating all possible crosswords
+    All
 }
 
 pub struct CrosswordStream<CharT: CrosswordChar + 'static, StrT: CrosswordString<CharT> + 'static>
@@ -129,6 +171,9 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordStream<CharT, 
         CrosswordStream { request_sender: rs, crossword_reciever: cr }
     }
 
+    /// Requests crosswords to generate with function like next or take
+    /// 
+    /// After requesting some count of crosswords (with [CrosswordGenerationRequest::Count]) and generating the crosswords the stream will start to wait for other requests, so if you want to only generate for example 10 crosswords, you need to request that, and then request a [CrosswordGenerationRequest::Stop] to stop the generator
     pub async fn request_crossword(&self, req: CrosswordGenerationRequest)
     {
         self.request_sender.send(req).await.unwrap();

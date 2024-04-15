@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use crate::{placed_word::PlacedWord, utils::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
 
+/// Error type for possible errors when working with crosswords
 #[derive(Error, Debug)]
 pub enum CrosswordError
 {
@@ -12,6 +13,22 @@ pub enum CrosswordError
     WordAlreadyExists
 }
 
+/// Represents a constraint on a [crossword](Crossword)
+/// ```text
+/// //MaxArea(46)        MaxLength(7) 
+/// // satisfied         unsatisfied
+/// //                
+/// //                        8
+/// //                 < - - - - - - >
+/// //                 ---------------
+/// //MaxHeight(6)  ^ |h e l l o      |
+/// // satisfied    | |      i        |
+/// //            6 | |      k        |
+/// //              | |      e n t e r|
+/// //              | |      l        |
+/// //              v |      y        |
+/// //                 ---------------
+/// ```
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub enum CrosswordConstraint
 {
@@ -45,6 +62,10 @@ impl CrosswordConstraint
             }
         }
     }
+
+    /// A constraint is recoverable if adding a new word to a crossword that doesn't meet the requirement can make the crossword to meet the requirement
+    /// 
+    /// For example a requirement on minimum word count is recoverable
     fn recoverable(&self) -> bool
     {
         match *self
@@ -56,6 +77,8 @@ impl CrosswordConstraint
         }
     }
 }
+
+/// Represents all settigns for a [crossword](Crossword)
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordSettings
 {
@@ -64,17 +87,54 @@ pub struct CrosswordSettings
 
 impl CrosswordSettings
 {
-    pub fn check_recoverables<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
+    pub fn check_recoverable_constraints<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
     {
         self.constraints.iter().filter(|constr| constr.recoverable()).all(|constr| constr.check(crossword))
     }
 
-    pub fn check_nonrecoverables<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
+    pub fn check_nonrecoverables_constraints<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, crossword: &Crossword<CharT, StrT>) -> bool
     {
         self.constraints.iter().filter(|constr| !constr.recoverable()).all(|constr| constr.check(crossword))
     }
 }
 
+/// Represents settings that dictate how two [words](PlacedWord) are allowed to be relatively positioned in a [crossword](Crossword) when not intersecting
+/// 
+/// 
+/// # Examples
+/// 
+/// ```text
+///                   -------------
+/// side_by_side <-> |h e l l o    |
+///                  |    w o r l d|
+///                   -------------
+/// 
+///                   -------------------
+/// head_by_head <-> |h e l l o w o r l d|
+///                   ------------------- 
+/// 
+///                   ---------
+/// side_by_head <-> |h e l l o|
+///                  |    w    |
+///                  |    o    |
+///                  |    r    |
+///                  |    l    |
+///                  |    d    |
+///                   ---------
+/// 
+/// 
+///                       -----------
+/// corner_by_corner <-> |  h e l l o|
+///                      |w          |
+///                      |o          |
+///                      |r          |
+///                      |l          |
+///                      |d          |
+///                       -----------
+/// 
+/// true == allowed
+/// false == not allowed
+/// ```
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub struct WordCompatibilitySettings
 {
@@ -86,7 +146,7 @@ pub struct WordCompatibilitySettings
 
 impl WordCompatibilitySettings 
 {
-    /// Checks if two [words](Word) are compatible
+    /// Checks if two [words](PlacedWord) are compatible
     pub fn are_words_compatible<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, first: &PlacedWord<CharT, StrT>, second: &PlacedWord<CharT, StrT>) -> bool
     {
         if first.corners_touch(second) && !self.corner_by_corner { return false; }
@@ -129,6 +189,12 @@ impl Default for WordCompatibilitySettings
         }    
     }
 }
+
+/// # Represents a crossword
+/// 
+/// A crossword can't have two [words](PlacedWord) with the same string value in it.
+/// 
+/// A crossword is always normalized, meaning all possible coordinates of words are positive, and the minimums are 0
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
@@ -139,6 +205,31 @@ pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 
 impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 {
+    /// Shifts coordinates of all words in a way, that ensures that the minimum x and y values in all words will be 0s
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
+    /// 
+    /// let mut cw1 = Crossword::default();
+    /// let mut cw2 = Crossword::default();
+    /// 
+    /// // add_words normalizes the crossword only after adding all words
+    /// cw1.add_words([PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right),
+    ///                PlacedWord::new("world".to_owned(), Position{ x: 2, y: 0 }, Direction::Down)].into_iter()).unwrap();
+    /// 
+    /// // add_word normalizes the crossword after adding the word
+    /// cw2.add_word(PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right)).unwrap();
+    /// 
+    /// // so adding a horizontal word at position (0, 3) creates redundant rows (indexes 0, 1, 2), because of that normalization shifts words 3 rows up
+    /// // effectively adding the word at position (0, 0) 
+    /// // And the next word will need to be added at (2, -3)
+    /// cw2.add_word(PlacedWord::new("world".to_owned(), Position{ x: 2, y: -3 }, Direction::Down)).unwrap();
+    /// 
+    /// assert_eq!(cw1, cw2)
+    /// ```
     fn normalize(&mut self)
     {
         let mut min_corner = (i16::MAX, i16::MAX);
@@ -160,16 +251,38 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         self.words = new_set;
     }
 
+    /// Creates a new empty crossword with provided [settings](WordCompatibilitySettings)
     pub fn new(word_compatibility_settings: WordCompatibilitySettings) -> Crossword<CharT, StrT>
     {
         Crossword{ word_compatibility_settings, ..Default::default() }
     }
 
+    /// Checks if a [word](PlacedWord) can be added to the [crossword](Crossword) 
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};                                         
+    /// let mut cw = Crossword::new(WordCompatibilitySettings::default());                                  //     ---------
+    ///                                                                                                     //    |h e l l o|
+    /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
+    /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
+    ///                                                                                                     //    |    a    |
+    ///                                                                                                     //    |    l    |
+    ///                                                                                                     //     ---------
+    ///                                                                                             
+    /// assert!(cw.can_word_be_added(&PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down)));
+    /// ```
+    /// 
+    /// Note that for example word halo on position (3, -2) and direction down is not allowed by a setting in word compatibility settings that forbids two words with same direction to be side to side
     pub fn can_word_be_added(&self, word: &PlacedWord<CharT, StrT>) -> bool
     {
         self.words.iter().all(|w| self.word_compatibility_settings.are_words_compatible(w, word))
     }
 
+    /// Finds the [word](PlacedWord) given its string value.
     pub fn find_word(&self, word: &StrT) -> Option<&PlacedWord<CharT, StrT>>
     {
         self.words.iter().find(|w| w.value == *word)
@@ -182,6 +295,13 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         else { self.words.insert(word); Ok(()) }
     }
 
+    /// Adds the [word](PlacedWord) to the [crossword](Crossword)
+    /// [Normalizes](Crossword::normalize) the crossword after adding the word
+    /// 
+    /// # Errors
+    /// 
+    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word
+    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword (yeah, this is not allowed)
     pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
     {
         self.add_word_unnormalized(word)?;
@@ -189,6 +309,15 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         Ok(())
     }  
 
+    /// Adds the [words](PlacedWord) to the [crossword](Crossword)
+    /// Only normalizes the crossword after adding all the words. 
+    /// Note, that it's different from calling [Crossword::add_word] in a loop
+    /// 
+    /// 
+    /// # Errors
+    /// 
+    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word
+    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword (yeah, this is not allowed)
     pub fn add_words(&mut self, mut words: impl Iterator<Item = PlacedWord<CharT, StrT>>) -> Result<(), CrosswordError>
     {
         let res = words.try_for_each(|w| self.add_word_unnormalized(w));
@@ -196,6 +325,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         res
     }
 
+    /// Removes the [word](PlacedWord) from the [crossword](Crossword) if finded
+    /// 
+    /// returns true if the word was succesfully removed
+    /// returns false if a word with provaded value was not found
+    /// 
+    /// (normalizes the crossword after removing the word)
     pub fn remove_word(&mut self, word: &StrT) -> bool
     {
         if let Some(word) = self.find_word(word).cloned()
@@ -209,6 +344,36 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         else { false }
     }
 
+    /// Checks if another [crossword](Crossword) is found inside this crossword.
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
+    /// 
+    /// // allowing two words to be side by side
+    /// let wcs = WordCompatibilitySettings { side_by_side: true, ..Default::default() };
+    ///                                                     
+    /// let mut cw1 = Crossword::<u8, &str>::new(wcs.clone());                                               //     ---------
+    ///                                                                                                      //    |h e l l o|
+    /// cw1.add_word(PlacedWord::new("hello", Position { x: 0, y: 0 }, Direction::Right));                   //    |    o    |
+    /// cw1.add_word(PlacedWord::new("local", Position { x: 2, y: 0 }, Direction::Down));                    //    |    c a t|
+    /// cw1.add_word(PlacedWord::new("cat", Position { x: 2, y: 2 }, Direction::Right));                     //    |    a n o|
+    /// cw1.add_word(PlacedWord::new("and", Position { x: 3, y: 2 }, Direction::Down));                      //    |    l d y|
+    /// cw1.add_word(PlacedWord::new("toy", Position { x: 4, y: 2 }, Direction::Down));                      //     ---------
+    ///                                                                                                      
+    ///                                                                                         
+    ///
+    /// let mut cw2 = Crossword::new(wcs.clone());                                                           //     -----                 
+    ///                                                                                                      //    |c a t|
+    /// cw2.add_word(PlacedWord::new("cat", Position { x: 0, y: 0 }, Direction::Right));                     //    |  n o|
+    /// cw2.add_word(PlacedWord::new("and", Position { x: 1, y: 0 }, Direction::Down));                      //    |  d y|
+    /// cw2.add_word(PlacedWord::new("toy", Position { x: 2, y: 0 }, Direction::Down));                      //     -----
+    ///     
+    /// assert!(cw1.contains_crossword(&cw2));
+    /// ```
     pub fn contains_crossword(&self, other: &Crossword<CharT, StrT>) -> bool 
     {
         if other.words.len() > self.words.len() { return false; }
@@ -242,6 +407,37 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         true
     }
 
+        /// Returns all possible ways to add a [word](Word) into the [crossword](Crossword)
+        /// 
+        /// # Example
+        /// 
+        /// ```
+        /// # use crossword_generator::word::{Word, Direction, Position};
+        /// # use crossword_generator::placed_word::PlacedWord;
+        /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};         
+        /// # use std::collections::BTreeSet;   
+        ///
+        ///                                           
+        /// let mut cw = Crossword::default();                                                                  //     ---------
+        ///                                                                                                     //    |h e l l o|
+        /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
+        /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
+        ///                                                                                                     //    |    a    |
+        ///                                                                                                     //    |    l    |
+        ///                                                                                                     //     ---------
+        ///                                                                                         
+        /// assert_eq!(cw.calculate_possible_ways_to_add_word(&Word::new("halo", None)), 
+        ///             BTreeSet::from([
+        ///     PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down),
+        ///     PlacedWord::new("halo", Position { x: 4, y: -3 }, Direction::Down),
+        ///     PlacedWord::new("halo", Position { x: 0, y: 4 }, Direction::Right),
+        ///     PlacedWord::new("halo", Position { x: 1, y: 3 }, Direction::Right),
+        /// ]));
+        /// ```
+        /// 
+        /// 
+        /// 
+        /// Note that for example word halo on position 3 -2 and direction down is not allowed by a setting in word compatibility settings that forbids two words with same direction to be side to side
     pub fn calculate_possible_ways_to_add_word(&self, word: &Word<CharT, StrT>) -> BTreeSet<PlacedWord<CharT, StrT>>
     {
         if self.words.is_empty()
@@ -255,6 +451,22 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
             .collect()
     }
 
+    /// Returns the size of the minimum rectangle that can contain the [crossword](Crossword)
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::Crossword;                                         
+    /// let mut cw = Crossword::default();                                                                  //     ---------
+    ///                                                                                                     //    |h e l l o|
+    /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
+    /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
+    ///                                                                                                     //    |    a    |
+    ///                                                                                                     //    |    l    |
+    ///                                                                                                     //     ---------
+    /// assert_eq!(cw.get_size(), (5, 5));
     pub fn get_size(&self) -> (u16, u16)
     {
         let mut max_corner = (0i16, 0i16);
@@ -272,6 +484,33 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     
         (max_corner.0 as u16, max_corner.1 as u16)
     }
+
+    /// Returns a matrix of characters that represent the [crossword](Crossword)
+    /// 
+    /// # Example
+    /// 
+    /// ```
+    /// # use crossword_generator::word::{Direction, Position};
+    /// # use crossword_generator::placed_word::PlacedWord;
+    /// # use crossword_generator::crossword::Crossword;                                         
+    /// let mut cw = Crossword::default();                                                                  //     ---------
+    ///                                                                                                     //    |h e l l o|
+    /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
+    /// cw.add_word(PlacedWord::<u8, &str>::new("local", Position{x: 2, y: 0}, Direction::Down));           //    |    c    |
+    ///                                                                                                     //    |    a    |
+    ///                                                                                                     //    |    l    |
+    ///                                                                                                     //     ---------
+    /// assert_eq!(cw.generate_char_table(), vec!
+    /// [
+    ///     vec![ b'h',  b'e', b'l',  b'l',  b'o'],    
+    ///     vec![b'\0', b'\0', b'o', b'\0', b'\0'],
+    ///     vec![b'\0', b'\0', b'c', b'\0', b'\0'],
+    ///     vec![b'\0', b'\0', b'a', b'\0', b'\0'],
+    ///     vec![b'\0', b'\0', b'l', b'\0', b'\0']
+    /// ]);   
+    /// 
+    /// // uses the default value for the empty cells                                              
+    /// ```
 
     pub fn generate_char_table(&self) ->Vec<Vec<CharT>>
     {

@@ -20,7 +20,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             rt.block_on(async move
             {
                 let mut str = generator.crossword_stream();
-                str.request_crossword(CrosswordGenerationRequest::Endless).await;
+                str.request_crossword(CrosswordGenerationRequest::All).await;
                 while let Some(_) = str.next().await {}
             });
         });
