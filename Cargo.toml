@@ -1,7 +1,10 @@
 [package]
 name = "crossword_generator"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
+authors = ["Hayk Khachatryan"]
+description = "A library for generating crossword from provided words"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,7 +15,7 @@ itertools = "0.12.1"
 trait-set = "0.3.0"
 thiserror = "1.0.58"
 tokio-stream = "0.1.15"
-tokio = { version = "1.36.0", features = ["full"]}
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"]}
 async-recursion = "1.1.0"
 async_fn_traits = "0.1.1"
 

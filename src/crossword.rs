@@ -195,6 +195,32 @@ impl Default for WordCompatibilitySettings
 /// A crossword can't have two [words](PlacedWord) with the same string value in it.
 /// 
 /// A crossword is always normalized, meaning all possible coordinates of words are positive, and the minimums are 0
+/// 
+/// Normalization means shifting coordinates of all words in a way, that ensures that the minimum x and y values in all words will be 0s
+/// # Example
+/// 
+/// ```
+/// # use crossword_generator::word::{Direction, Position};
+/// # use crossword_generator::placed_word::PlacedWord;
+/// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
+/// 
+/// let mut cw1 = Crossword::default();
+/// let mut cw2 = Crossword::default();
+/// 
+/// // add_words normalizes the crossword only after adding all words
+/// cw1.add_words([PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right),
+///                PlacedWord::new("world".to_owned(), Position{ x: 2, y: 0 }, Direction::Down)].into_iter()).unwrap();
+/// 
+/// // add_word normalizes the crossword after adding the word
+/// cw2.add_word(PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right)).unwrap();
+/// 
+/// // so adding a horizontal word at position (0, 3) creates redundant rows (indexes 0, 1, 2), because of that normalization shifts words 3 rows up
+/// // effectively adding the word at position (0, 0) 
+/// // And the next word will need to be added at (2, -3)
+/// cw2.add_word(PlacedWord::new("world".to_owned(), Position{ x: 2, y: -3 }, Direction::Down)).unwrap();
+/// 
+/// assert_eq!(cw1, cw2)
+/// ```
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
@@ -205,31 +231,6 @@ pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 
 impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 {
-    /// Shifts coordinates of all words in a way, that ensures that the minimum x and y values in all words will be 0s
-    /// # Example
-    /// 
-    /// ```
-    /// # use crossword_generator::word::{Direction, Position};
-    /// # use crossword_generator::placed_word::PlacedWord;
-    /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
-    /// 
-    /// let mut cw1 = Crossword::default();
-    /// let mut cw2 = Crossword::default();
-    /// 
-    /// // add_words normalizes the crossword only after adding all words
-    /// cw1.add_words([PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right),
-    ///                PlacedWord::new("world".to_owned(), Position{ x: 2, y: 0 }, Direction::Down)].into_iter()).unwrap();
-    /// 
-    /// // add_word normalizes the crossword after adding the word
-    /// cw2.add_word(PlacedWord::new("hello".to_owned(), Position{ x: 0, y: 3 }, Direction::Right)).unwrap();
-    /// 
-    /// // so adding a horizontal word at position (0, 3) creates redundant rows (indexes 0, 1, 2), because of that normalization shifts words 3 rows up
-    /// // effectively adding the word at position (0, 0) 
-    /// // And the next word will need to be added at (2, -3)
-    /// cw2.add_word(PlacedWord::new("world".to_owned(), Position{ x: 2, y: -3 }, Direction::Down)).unwrap();
-    /// 
-    /// assert_eq!(cw1, cw2)
-    /// ```
     fn normalize(&mut self)
     {
         let mut min_corner = (i16::MAX, i16::MAX);
