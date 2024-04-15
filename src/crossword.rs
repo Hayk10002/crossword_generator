@@ -1,9 +1,9 @@
 use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use crate::{placed_word::PlacedWord, utils::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
+use crate::{placed_word::PlacedWord, traits::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
 
-/// Error type for possible errors when working with crosswords
+/// Error type for possible errors when working with [crosswords](Crossword)
 #[derive(Error, Debug)]
 pub enum CrosswordError
 {
@@ -13,7 +13,7 @@ pub enum CrosswordError
     WordAlreadyExists
 }
 
-/// Represents a constraint on a [crossword](Crossword)
+/// Represents a constraint on a [crossword](Crossword).
 /// ```text
 /// //MaxArea(46)        MaxLength(7) 
 /// // satisfied         unsatisfied
@@ -78,7 +78,7 @@ impl CrosswordConstraint
     }
 }
 
-/// Represents all settigns for a [crossword](Crossword)
+/// Represents all settigns for a [crossword](Crossword).
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordSettings
 {
@@ -98,7 +98,7 @@ impl CrosswordSettings
     }
 }
 
-/// Represents settings that dictate how two [words](PlacedWord) are allowed to be relatively positioned in a [crossword](Crossword) when not intersecting
+/// Represents settings that dictate how two [words](PlacedWord) are allowed to be relatively positioned in a [crossword](Crossword) when not intersecting.
 /// 
 /// 
 /// # Examples
@@ -203,7 +203,6 @@ impl Default for WordCompatibilitySettings
 /// # use crossword_generator::word::{Direction, Position};
 /// # use crossword_generator::placed_word::PlacedWord;
 /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
-/// 
 /// let mut cw1 = Crossword::default();
 /// let mut cw2 = Crossword::default();
 /// 
@@ -258,7 +257,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         Crossword{ word_compatibility_settings, ..Default::default() }
     }
 
-    /// Checks if a [word](PlacedWord) can be added to the [crossword](Crossword) 
+    /// Checks if a [word](PlacedWord) can be added to the crossword
     /// 
     /// # Example
     /// 
@@ -296,13 +295,14 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         else { self.words.insert(word); Ok(()) }
     }
 
-    /// Adds the [word](PlacedWord) to the [crossword](Crossword)
-    /// Normalizes the crossword after adding the word
+    /// Adds the [word](PlacedWord) to the crossword.
+    /// Normalizes the crossword after adding the word.
     /// 
     /// # Errors
     /// 
-    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word
-    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword (yeah, this is not allowed)
+    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word.
+    /// 
+    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword.
     pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
     {
         self.add_word_unnormalized(word)?;
@@ -310,15 +310,16 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         Ok(())
     }  
 
-    /// Adds the [words](PlacedWord) to the [crossword](Crossword)
+    /// Adds the [words](PlacedWord) to the crossword.
     /// Only normalizes the crossword after adding all the words. 
-    /// Note, that it's different from calling [Crossword::add_word] in a loop
+    /// Note, that it's different from calling [Crossword::add_word] in a loop.
     /// 
     /// 
     /// # Errors
     /// 
-    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word
-    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword (yeah, this is not allowed)
+    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word.
+    /// 
+    /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword.
     pub fn add_words(&mut self, mut words: impl Iterator<Item = PlacedWord<CharT, StrT>>) -> Result<(), CrosswordError>
     {
         let res = words.try_for_each(|w| self.add_word_unnormalized(w));
@@ -326,10 +327,11 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         res
     }
 
-    /// Removes the [word](PlacedWord) from the [crossword](Crossword) if finded
+    /// Removes the [word](PlacedWord) from the crossword if finded.
     /// 
-    /// returns true if the word was succesfully removed
-    /// returns false if a word with provaded value was not found
+    /// Returns true if the word was succesfully removed.
+    /// 
+    /// Returns false if a word with provaded value was not found.
     /// 
     /// (normalizes the crossword after removing the word)
     pub fn remove_word(&mut self, word: &StrT) -> bool
@@ -345,7 +347,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         else { false }
     }
 
-    /// Checks if another [crossword](Crossword) is found inside this crossword.
+    /// Checks if another crossword is found inside this crossword.
     /// 
     /// # Example
     /// 
@@ -353,7 +355,6 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     /// # use crossword_generator::word::{Direction, Position};
     /// # use crossword_generator::placed_word::PlacedWord;
     /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};  
-    /// 
     /// // allowing two words to be side by side
     /// let wcs = WordCompatibilitySettings { side_by_side: true, ..Default::default() };
     ///                                                     
@@ -408,7 +409,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         true
     }
 
-    /// Returns all possible ways to add a [word](Word) into the [crossword](Crossword)
+    /// Returns all possible ways to add a [word](Word) into the crossword
     /// 
     /// # Example
     /// 
@@ -416,9 +417,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     /// # use crossword_generator::word::{Word, Direction, Position};
     /// # use crossword_generator::placed_word::PlacedWord;
     /// # use crossword_generator::crossword::{Crossword, WordCompatibilitySettings};         
-    /// # use std::collections::BTreeSet;   
-    ///
-    ///                                           
+    /// # use std::collections::BTreeSet;                                      
     /// let mut cw = Crossword::default();                                                                  //     ---------
     ///                                                                                                     //    |h e l l o|
     /// cw.add_word(PlacedWord::<u8, &str>::new("hello", Position{x: 0, y: 0}, Direction::Right));          //    |    o    |
@@ -452,7 +451,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
             .collect()
     }
 
-    /// Returns the size of the minimum rectangle that can contain the [crossword](Crossword)
+    /// Returns the size of the minimum rectangle that can contain the crossword.
     /// 
     /// # Example
     /// 
@@ -486,7 +485,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         (max_corner.0 as u16, max_corner.1 as u16)
     }
 
-    /// Returns a matrix of characters that represent the [crossword](Crossword)
+    /// Returns a matrix of characters that represent the crossword.
     /// 
     /// # Example
     /// 

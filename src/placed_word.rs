@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, marker::PhantomData};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use crate::{utils::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
+use crate::{traits::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
 
 
 
@@ -38,9 +38,9 @@ impl WordBoundingBox
 }
 
 
-/// Represents a word inside of a [crossword](crate::crossword::Crossword), has [position](Position) and [direction](Direction)
+/// Represents a word inside of a [crossword](crate::crossword::Crossword), has [position](Position) and [direction](Direction).
 /// 
-/// Accepts two template parameters, that specify the type of individual characters in the word and the type of the word itself (for example u8 and &str, or if you want your crossword to consist of numbers, Digit and Vec\<Digit\> (where Digit is a type that accepts only numbers from 0 to 9))  
+/// Accepts two template parameters, that specify the type of individual characters in the word and the type of the word itself (for example u8 and &str, or if you want your crossword to consist of numbers, Digit and Vec\<Digit\> (where Digit is a type that accepts only numbers from 0 to 9)).  
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct PlacedWord<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
@@ -86,7 +86,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         }
     }
 
-    /// Returns true if two [words](PlacedWord) are intersecting 
+    /// Returns true if two [words](PlacedWord) are intersecting.
     pub fn intersects(&self, other: &PlacedWord<CharT, StrT>) -> bool 
     {
         self.get_bounding_box().intersects(&other.get_bounding_box())
@@ -97,13 +97,13 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         self.get_bounding_box().sides_touch(&other.get_bounding_box())
     }
 
-    /// Returns true if two [words](PlacedWord) are corner by corner (check [crate::crossword::WordCompatibilitySettings::corner_by_corner])
+    /// Returns true if two [words](PlacedWord) are corner by corner (check [crate::crossword::WordCompatibilitySettings::corner_by_corner]).
     pub fn corners_touch(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.get_bounding_box().corners_touch(&other.get_bounding_box())
     }
 
-    /// Returns true if two [words](PlacedWord) are side by side (check [crate::crossword::WordCompatibilitySettings::side_by_side])
+    /// Returns true if two [words](PlacedWord) are side by side (check [crate::crossword::WordCompatibilitySettings::side_by_side]).
     pub fn side_touches_side(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction == other.direction &&
@@ -111,14 +111,14 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         self.get_parallel_coordinate() != other.get_parallel_coordinate()
     }
 
-    /// Returns true if two [words](PlacedWord) are side by head (check [crate::crossword::WordCompatibilitySettings::side_by_head])
+    /// Returns true if two [words](PlacedWord) are side by head (check [crate::crossword::WordCompatibilitySettings::side_by_head]).
     pub fn side_touches_head(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction != other.direction &&
         self.sides_touch(other)
     }
 
-    /// Returns true if two [words](PlacedWord) are head by head (check [crate::crossword::WordCompatibilitySettings::head_by_head])
+    /// Returns true if two [words](PlacedWord) are head by head (check [crate::crossword::WordCompatibilitySettings::head_by_head]).
     pub fn head_touches_head(&self, other: &PlacedWord<CharT, StrT>) -> bool
     {
         self.direction == other.direction &&
@@ -126,9 +126,9 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         self.get_parallel_coordinate() == other.get_parallel_coordinate()
     }
 
-    /// Returns the indices of the characters in the intersection of the [words](Word) if they are intersecting
+    /// Returns the indices of the characters in the intersection of the [words](Word) if they are intersecting.
     /// 
-    /// Returns None otherwise
+    /// Returns None otherwise.
     /// 
     /// # Example
     /// ```
@@ -160,7 +160,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> PlacedWord<CharT, StrT>
         }
     }
 
-    /// Returns all possible ways to add another [word](Word) on top of this 
+    /// Returns all possible ways to add another [word](Word) on top of this.
     /// 
     /// # Example
     /// ```

@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc::{self, Receiver, Sender}, task};
 use tokio_stream::Stream;
 
-use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}, utils::{CrosswordChar, CrosswordString}, word::Word};
+use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}, traits::{CrosswordChar, CrosswordString}, word::Word};
 
-/// Represents all settings for a [generator](CrosswordGenerator)
+/// Represents all settings for a [generator](CrosswordGenerator).
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub struct CrosswordGeneratorSettings
 {
@@ -15,7 +15,7 @@ pub struct CrosswordGeneratorSettings
     pub word_compatibility_settings: WordCompatibilitySettings
 }
 
-/// Represents a crossword generator, runs in an async runtime
+/// Represents a crossword generator, runs in an async runtime.
 /// 
 /// # Example
 /// ```
@@ -136,16 +136,16 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
 }
 
 
-/// Represents a request to [CrosswordStream] for generating crosswords
+/// Represents a request to [CrosswordStream] for generating crosswords.
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
 pub enum CrosswordGenerationRequest
 {
-    /// Request to stop the crossword generation
+    /// Request to stop the crossword generation.
     #[default]
     Stop,
-    /// Request for some count of crosswords to generate
+    /// Request for some count of crosswords to generate.
     Count(u32),
-    /// Request for generating all possible crosswords
+    /// Request for generating all possible crosswords.
     All
 }
 
@@ -171,9 +171,9 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordStream<CharT, 
         CrosswordStream { request_sender: rs, crossword_reciever: cr }
     }
 
-    /// Requests crosswords to generate with function like next or take
+    /// Requests crosswords to generate with function like next or take.
     /// 
-    /// After requesting some count of crosswords (with [CrosswordGenerationRequest::Count]) and generating the crosswords the stream will start to wait for other requests, so if you want to only generate for example 10 crosswords, you need to request that, and then request a [CrosswordGenerationRequest::Stop] to stop the generator
+    /// After requesting some count of crosswords (with [CrosswordGenerationRequest::Count]) and generating the crosswords the stream will start to wait for other requests, so if you want to only generate for example 10 crosswords, you need to request that, and then request a [CrosswordGenerationRequest::Stop] to stop the generator.
     pub async fn request_crossword(&self, req: CrosswordGenerationRequest)
     {
         self.request_sender.send(req).await.unwrap();
