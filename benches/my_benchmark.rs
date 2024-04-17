@@ -34,5 +34,6 @@ criterion_group!(benches, criterion_benchmark);
 criterion_main!(benches);
 
 // NOTEBOOK BATTERY ON
-// Stream, without &[CharT] optimisation       124.33 ms
-// Stream, with &[CharT] optimisation          60.610 ms
+// Stream, without &[CharT] optimisation        124.33 ms
+// Stream, with &[CharT] optimisation           60.610 ms
+// Stream, with convert_f                       71.066 ms
