@@ -30,14 +30,14 @@ pub struct CrosswordGeneratorSettings
 /// async fn main() 
 /// {
 /// 
-///     let mut generator = CrosswordGenerator::<u8, Vec<u8>>::default();
+///     let mut generator = CrosswordGenerator::<u8, String>::default();
 ///     generator.settings = CrosswordGeneratorSettings::default();
-///     generator.words = vec!["Hello", "world"].into_iter().map(|s| Word::new(<String as AsRef<[u8]>>::as_ref(&s.to_lowercase()).to_owned(), None)).collect();
+///     generator.words = vec!["Hello", "world"].into_iter().map(|s| Word::new(s.to_lowercase(), None)).collect();
 ///      
-///     let str = generator.crossword_stream();
+///     let str = generator.crossword_stream(|w| String::from_utf8(w.to_owned()).unwrap());
 ///     str.request_crossword(CrosswordGenerationRequest::Count(2)).await;
 ///     str.request_crossword(CrosswordGenerationRequest::Stop).await;
-///     let crosswords: Vec<Crossword<u8, String>> = str.map(|cw| cw.convert_to(|w| String::from_utf8(w).unwrap())).collect().await;
+///     let crosswords: Vec<Crossword<u8, String>> = str.collect().await;
 ///     
 ///     let mut cw1 = Crossword::default();
 ///     let mut cw2 = Crossword::default();
@@ -58,9 +58,12 @@ pub struct CrosswordGenerator<CharT: CrosswordChar, StrT: CrosswordString<CharT>
     pub settings: CrosswordGeneratorSettings,
 }
 
-impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> CrosswordGenerator<CharT, StrT>
+impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<CharT, StrT>
 {
-    pub fn crossword_stream(&self) -> CrosswordStream<CharT, StrT>
+    /// Takes a function to convert from &[CharT] to StrT, because the generator generates crosswords with words with type &[CharT] to prevent unnecessary copying
+    pub fn crossword_stream<F>(&self, convert_f: F) -> CrosswordStream<CharT, StrT> where
+        F: Fn(&[CharT]) -> StrT,
+        F: Send + Sync + 'static
     {  
         let gen = self.clone();
         
@@ -71,7 +74,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
             let mut current_crossword = Crossword::new(gen.settings.word_compatibility_settings.clone());
             let mut full_created_crossword_bases = BTreeSet::new();
             let remaine_words = gen.words.iter().map(|w| Word::<CharT, &[CharT]>::new(w.value.as_ref(), w.dir.clone())).collect();
-            CrosswordGenerator::<CharT, StrT>::generator_impl(&gen.settings, &mut rr, &cs, &mut current_request, &mut current_crossword, &remaine_words, &mut full_created_crossword_bases).await
+            CrosswordGenerator::<CharT, StrT>::generator_impl(&gen.settings, &mut rr, &cs, &mut current_request, &mut current_crossword, &remaine_words, &mut full_created_crossword_bases, &convert_f).await
                
         };
 
@@ -79,7 +82,9 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
     }
 
     #[async_recursion]
-    async fn generator_impl<'a>(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, &'a [CharT]>, remained_words: &BTreeSet<Word<CharT, &'a [CharT]>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, &'a [CharT]>>)  
+    async fn generator_impl<'a, F>(gen_settings: &CrosswordGeneratorSettings, rr: &mut Receiver<CrosswordGenerationRequest>, cs: &Sender<Crossword<CharT, StrT>>, current_request: &mut CrosswordGenerationRequest, current_crossword: &mut Crossword<CharT, &'a [CharT]>, remained_words: &BTreeSet<Word<CharT, &'a [CharT]>>, full_created_crossword_bases: &mut BTreeSet<Crossword<CharT, &'a [CharT]>>, convert_f: &F) where  
+        F: Fn(&'a [CharT]) -> StrT,
+        F: Send + Sync + 'static
     {
         if !gen_settings.crossword_settings.check_nonrecoverables_constraints(current_crossword) 
         {
@@ -104,7 +109,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
                     }
                 }
 
-                cs.send(current_crossword.clone().convert_to(|w| w.iter().cloned().collect())).await.unwrap();
+                cs.send(current_crossword.clone().convert_to(|w| convert_f(w))).await.unwrap();
                 if let CrosswordGenerationRequest::Count(count) = *current_request { *current_request = CrosswordGenerationRequest::Count(count - 1) }
             }
             return;
@@ -117,7 +122,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT> + FromIterator<CharT>> C
             {
                 current_crossword.add_word(step.clone()).unwrap();
 
-                CrosswordGenerator::generator_impl(gen_settings, rr, cs, current_request, current_crossword, &new_remained_words, full_created_crossword_bases).await;
+                CrosswordGenerator::generator_impl(gen_settings, rr, cs, current_request, current_crossword, &new_remained_words, full_created_crossword_bases, convert_f).await;
 
                 if let CrosswordGenerationRequest::Stop = current_request { return; }
                 
