@@ -220,7 +220,7 @@ impl Default for WordCompatibilitySettings
 /// 
 /// assert_eq!(cw1, cw2)
 /// ```
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
 pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     words: BTreeSet<PlacedWord<CharT, StrT>>,
@@ -542,6 +542,18 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
             )).unwrap();
     
         res
+    }
+}
+
+impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Default for Crossword<CharT, StrT>
+{
+    fn default() -> Crossword<CharT, StrT>
+    {
+        Crossword
+        {
+            words: BTreeSet::new(),
+            word_compatibility_settings: WordCompatibilitySettings::default()
+        }
     }
 }
 

@@ -17,6 +17,7 @@ itertools = "0.12.1"
 trait-set = "0.3.0"
 thiserror = "1.0.58"
 tokio-stream = "0.1.15"
+futures = "0.3.30"
 tokio = { version = "1.36.0", features = ["rt-multi-thread", "macros"]}
 async-recursion = "1.1.0"
 async_fn_traits = "0.1.1"

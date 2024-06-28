@@ -8,11 +8,11 @@ Works in an async runtime.
 use crossword_generator::{crossword::Crossword, generator::{CrosswordGenerationRequest, CrosswordGenerator, CrosswordGeneratorSettings}, word::Word};
 use tokio_stream::StreamExt;
 
-// Function to print the crossword to the console
+// A quick function to print the crossword to the console
 fn print_crossword(cw: &Crossword<u8, String>)
 {
     let table = cw.generate_char_table();
-    println!(" {} ", vec!['-'; table.len() * 2 - 1].into_iter().collect::<String>());
+    println!(" {} ", vec!['-'; table[0].len() * 2 - 1].into_iter().collect::<String>());
     for i in 0..table.len()
     {
         print!("|");
@@ -23,7 +23,7 @@ fn print_crossword(cw: &Crossword<u8, String>)
         }
         println!("|");
     }
-    println!(" {} ", vec!['-'; table.len() * 2 - 1].into_iter().collect::<String>());
+    println!(" {} ", vec!['-'; table[0].len() * 2 - 1].into_iter().collect::<String>());
 }
 
 #[tokio::main]
