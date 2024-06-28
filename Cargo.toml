@@ -1,6 +1,6 @@
 [package]
 name = "crossword_generator"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 authors = ["Hayk Khachatryan"]
 description = "A library for generating crossword from provided words"
@@ -13,7 +13,7 @@ repository = "https://github.com/Hayk10002/crossword_generator.git"
 [dependencies]
 serde = { version = "1.0.192", features = ["derive"] }
 serde_json = "1.0.108"
-itertools = "0.12.1"
+itertools = "0.13.0"
 trait-set = "0.3.0"
 thiserror = "1.0.58"
 tokio-stream = "0.1.15"
