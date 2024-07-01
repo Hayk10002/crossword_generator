@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 use crossword_generator::{generator::{CrosswordGenerationRequest, CrosswordGenerator, CrosswordGeneratorSettings}, word::Word};
 use tokio::runtime::Runtime;
@@ -6,6 +8,7 @@ use tokio_stream::StreamExt;
 pub fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("crossword");
 
+    #[cfg(feature = "multi-thread")]
     group.bench_function(BenchmarkId::new("randomized", ""),
     |b|
     {
@@ -26,6 +29,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         });
     });
 
+    #[cfg(feature = "multi-thread")]
     group.bench_function(BenchmarkId::new("sorted", ""),
     |b|
     {
