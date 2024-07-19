@@ -1,17 +1,9 @@
 use std::collections::BTreeSet;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use crate::{placed_word::PlacedWord, traits::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
 
-/// Error type for possible errors when working with [crosswords](Crossword)
-#[derive(Error, Debug)]
-pub enum CrosswordError
-{
-    #[error("Cannot add the word to the crossword.")]
-    CantAddWord,
-    #[error("The word is already in the crossword.")]
-    WordAlreadyExists
-}
 
 /// Represents a constraint on a [crossword](Crossword).
 /// ```text
@@ -98,6 +90,22 @@ impl CrosswordSettings
     }
 }
 
+/// Error type for possible issues with positioning of two [words](PlacedWord) in [crossword](Crossword)
+#[derive(Error, Debug)]
+pub enum WordCompatibilityError
+{
+    #[error("Words are side by side with each other, when the setting is not set.")]
+    SideBySide,
+    #[error("Words are head by head with each other, when the setting is not set.")]
+    HeadByHead,
+    #[error("Words are side by head with each other, when the setting is not set.")]
+    SideByHead,
+    #[error("Words are corner by corner with each other, when the setting is not set.")]
+    CornerByCorner,
+    #[error("Invalid word intersection.")]
+    InvalidIntersection,
+}
+
 /// Represents settings that dictate how two [words](PlacedWord) are allowed to be relatively positioned in a [crossword](Crossword) when not intersecting.
 /// 
 /// 
@@ -146,32 +154,34 @@ pub struct WordCompatibilitySettings
 
 impl WordCompatibilitySettings 
 {
-    /// Checks if two [words](PlacedWord) are compatible
-    pub fn are_words_compatible<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, first: &PlacedWord<CharT, StrT>, second: &PlacedWord<CharT, StrT>) -> bool
+    /// Returns [None] if two [words](PlacedWord) are compatible.
+    /// 
+    /// Returns Some([WordCompatibilityError]) if the words are not compatible according to settings.
+    pub fn word_compatibility_issue<CharT: CrosswordChar, StrT: CrosswordString<CharT>>(&self, first: &PlacedWord<CharT, StrT>, second: &PlacedWord<CharT, StrT>) -> Option<WordCompatibilityError>
     {
-        if first.corners_touch(second) && !self.corner_by_corner { return false; }
+        if first.corners_touch(second) && !self.corner_by_corner { return Some(WordCompatibilityError::CornerByCorner); }
 
         if first.direction == second.direction
         {
-            if first.head_touches_head(second) && !self.head_by_head { return false; }
-            if first.side_touches_side(second) && !self.side_by_side { return false; }
-            if first.intersects(second) { return false; }
+            if first.head_touches_head(second) && !self.head_by_head { return Some(WordCompatibilityError::HeadByHead); }
+            if first.side_touches_side(second) && !self.side_by_side { return Some(WordCompatibilityError::SideBySide); }
+            if first.intersects(second) { return Some(WordCompatibilityError::InvalidIntersection); }
 
-            true
+            None
         }
         else
         {
-            if first.side_touches_head(second) && !self.side_by_head { return false; }
+            if first.side_touches_head(second) && !self.side_by_head {  return Some(WordCompatibilityError::SideByHead); }
             if first.intersects(second)
             {
                 let (first_ind, second_ind) = first.get_intersection_indices(second).unwrap();
                 let first_char = first.value.as_ref().iter().nth(first_ind as usize);
                 let second_char = second.value.as_ref().iter().nth(second_ind as usize);
         
-                return first_char.is_some() && second_char.is_some() && (first_char == second_char);
+                return (first_char.is_none() || second_char.is_none() || (first_char != second_char)).then_some(WordCompatibilityError::InvalidIntersection);
             }
 
-            true
+            None
         }
     }
 }
@@ -189,6 +199,20 @@ impl Default for WordCompatibilitySettings
         }    
     }
 }
+
+
+/// Error type for possible errors when working with [crosswords](Crossword)
+#[derive(Error, Debug)]
+pub enum CrosswordError<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
+{
+    #[error("The word is already in the crossword. Word: {0}")]
+    WordAlreadyExists(PlacedWord<CharT, StrT>),
+    #[error("The word is not connected to the rest of crossword.")]
+    WordNotConnected,
+    #[error("The word is not compatible with another word. CompatibilityError: {0}, Word: {1}")]
+    WordCompatibilityError(WordCompatibilityError, PlacedWord<CharT, StrT>),
+}
+
 
 /// # Represents a crossword
 /// 
@@ -257,7 +281,11 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         Crossword{ word_compatibility_settings, ..Default::default() }
     }
 
-    /// Checks if a [word](PlacedWord) can be added to the crossword
+    /// Checks if a [word](PlacedWord) can or can't be added to the crossword
+    /// 
+    /// Returns [None] if the word can be added to the crossword
+    /// 
+    /// Returns Some([CrosswordError]) if the word can't be added to the crossword
     /// 
     /// # Example
     /// 
@@ -273,13 +301,25 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     ///                                                                                                     //    |    l    |
     ///                                                                                                     //     ---------
     ///                                                                                             
-    /// assert!(cw.can_word_be_added(&PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down)));
+    /// assert!(cw.issue_when_adding_word(&PlacedWord::new("halo", Position { x: 0, y: 0 }, Direction::Down)).is_none());
     /// ```
     /// 
     /// Note that for example word halo on position (3, -2) and direction down is not allowed by a setting in word compatibility settings that forbids two words with same direction to be side to side
-    pub fn can_word_be_added(&self, word: &PlacedWord<CharT, StrT>) -> bool
+    pub fn issue_when_adding_word(&self, word: &PlacedWord<CharT, StrT>) -> Option<CrosswordError<CharT, StrT>>
     {
-        self.words.iter().all(|w| self.word_compatibility_settings.are_words_compatible(w, word))
+        if let Some(w) = self.find_word(&word.value) { Some(CrosswordError::WordAlreadyExists(w.clone())) }
+        else 
+        {
+            let err = self.words.iter()
+                .flat_map(|w| self.word_compatibility_settings.word_compatibility_issue(w, word).map(|err| CrosswordError::WordCompatibilityError(err, w.clone())))
+                .next();
+
+            if let None = err
+            {
+                self.words.iter().all(|w| !w.intersects(word)).then_some(CrosswordError::WordNotConnected)
+            }
+            else { err }
+        }
     }
 
     /// Finds the [word](PlacedWord) given its string value.
@@ -288,11 +328,13 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
         self.words.iter().find(|w| w.value == *word)
     }
 
-    fn add_word_unnormalized(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
+    fn add_word_unnormalized(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError<CharT, StrT>>
     {
-        if self.find_word(&word.value).is_some() { Err(CrosswordError::WordAlreadyExists) }
-        else if !self.can_word_be_added(&word) { Err(CrosswordError::CantAddWord) }
-        else { self.words.insert(word); Ok(()) }
+        match self.issue_when_adding_word(&word)
+        {
+            None => { self.words.insert(word); Ok(()) },
+            Some(err) => Err(err),
+        }
     }
 
     /// Adds the [word](PlacedWord) to the crossword.
@@ -300,10 +342,12 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     /// 
     /// # Errors
     /// 
-    /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word.
+    /// [CrosswordError::WordNotConnected] - The word is isolated from the crossword.
     /// 
     /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword.
-    pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError>
+    /// 
+    /// [CrosswordError::WordCompatibilityError] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word.
+    pub fn add_word(&mut self, word: PlacedWord<CharT, StrT>) -> Result<(), CrosswordError<CharT, StrT>>
     {
         self.add_word_unnormalized(word)?;
         self.normalize();
@@ -320,7 +364,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
     /// [CrosswordError::CantAddWord] - Word can't be added because it's violates the [word compatilibity settings](WordCompatibilitySettings) or has conflict with some other word.
     /// 
     /// [CrosswordError::WordAlreadyExists] - A word with same value already exists in the crossword.
-    pub fn add_words(&mut self, mut words: impl Iterator<Item = PlacedWord<CharT, StrT>>) -> Result<(), CrosswordError>
+    pub fn add_words(&mut self, mut words: impl Iterator<Item = PlacedWord<CharT, StrT>>) -> Result<(), CrosswordError<CharT, StrT>>
     {
         let res = words.try_for_each(|w| self.add_word_unnormalized(w));
         self.normalize();
@@ -447,7 +491,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 
         self.words.iter()
             .flat_map(|cur_word: &PlacedWord<_, _>  | cur_word.calculate_possible_ways_to_add_word(word))
-            .filter(|w: &PlacedWord<_, _>| self.can_word_be_added(w))
+            .filter(|w: &PlacedWord<_, _>| self.issue_when_adding_word(w).is_none())
             .collect()
     }
 

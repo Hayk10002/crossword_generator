@@ -631,7 +631,7 @@ mod tests
                 for x in -6i16..=9
                 {
                     second.position = Position {x, y};
-                    comp.push(settings.are_words_compatible(&first, &second) as isize);
+                    comp.push(settings.word_compatibility_issue(&first, &second).is_none() as isize);
                 }
             }
         
@@ -649,7 +649,7 @@ mod tests
                 for x in -2i16..=2
                 {
                     second.position = Position {x, y};
-                    comp.push(settings.are_words_compatible(&first, &second) as isize);
+                    comp.push(settings.word_compatibility_issue(&first, &second).is_none() as isize);
                 }
             }
             
@@ -677,7 +677,7 @@ mod tests
                 for x in -2i16..=9
                 {
                     second.position = Position {x, y};
-                    comp.push(settings.are_words_compatible(&first, &second) as isize);
+                    comp.push(settings.word_compatibility_issue(&first, &second).is_none() as isize);
                 }
             }
             
