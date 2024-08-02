@@ -6,7 +6,7 @@ use crate::{traits::{CrosswordChar, CrosswordString}, word::{Direction, Position
 
 
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 struct WordBoundingBox
 {
     x: i16,
@@ -41,7 +41,7 @@ impl WordBoundingBox
 /// Represents a word inside of a [crossword](crate::crossword::Crossword), has [position](Position) and [direction](Direction).
 /// 
 /// Accepts two template parameters, that specify the type of individual characters in the word and the type of the word itself (for example u8 and &str, or if you want your crossword to consist of numbers, Digit and Vec\<Digit\> (where Digit is a type that accepts only numbers from 0 to 9)).  
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 pub struct PlacedWord<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     pub position: Position,

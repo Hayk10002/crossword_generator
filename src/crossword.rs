@@ -21,7 +21,7 @@ use crate::{placed_word::PlacedWord, traits::{CrosswordChar, CrosswordString}, w
 /// //              v |      y        |
 /// //                 ---------------
 /// ```
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum CrosswordConstraint
 {
     None,
@@ -71,7 +71,7 @@ impl CrosswordConstraint
 }
 
 /// Represents all settigns for a [crossword](Crossword).
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 pub struct CrosswordSettings
 {
     pub constraints: Vec<CrosswordConstraint>
@@ -143,7 +143,7 @@ pub enum WordCompatibilityError
 /// true == allowed
 /// false == not allowed
 /// ```
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub struct WordCompatibilitySettings
 {
     pub side_by_side: bool,
@@ -244,7 +244,7 @@ pub enum CrosswordError<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 /// 
 /// assert_eq!(cw1, cw2)
 /// ```
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub struct Crossword<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     words: BTreeSet<PlacedWord<CharT, StrT>>,

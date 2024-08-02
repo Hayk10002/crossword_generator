@@ -12,7 +12,7 @@ use crate::{crossword::{Crossword, CrosswordSettings, WordCompatibilitySettings}
 const MAX_CONCURRENT_TASK_COUNT: usize = 10;
 
 /// Represents all settings for a [generator](CrosswordGenerator).
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 pub struct CrosswordGeneratorSettings
 {
     pub crossword_settings: CrosswordSettings,
@@ -55,7 +55,7 @@ pub struct CrosswordGeneratorSettings
 ///     assert_eq!(crosswords, vec![cw1, cw2])
 /// }
 /// ```
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 pub struct CrosswordGenerator<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     pub words: BTreeSet<Word<CharT, StrT>>,
@@ -264,7 +264,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> CrosswordGenerator<Char
 
 
 /// Represents a request to [CrosswordStream] for generating crosswords.
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Default, Debug, Serialize, Deserialize, Hash)]
 pub enum CrosswordGenerationRequest
 {
     /// Request to stop the crossword generation.
