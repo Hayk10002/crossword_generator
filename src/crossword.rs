@@ -91,7 +91,7 @@ impl CrosswordSettings
 }
 
 /// Error type for possible issues with positioning of two [words](PlacedWord) in [crossword](Crossword)
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum WordCompatibilityError
 {
     #[error("Words are side by side with each other, when the setting is not set.")]
@@ -202,7 +202,7 @@ impl Default for WordCompatibilitySettings
 
 
 /// Error type for possible errors when working with [crosswords](Crossword)
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum CrosswordError<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     #[error("The word is already in the crossword. Word: {0}")]
