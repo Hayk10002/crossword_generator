@@ -316,7 +316,7 @@ impl<CharT: CrosswordChar, StrT: CrosswordString<CharT>> Crossword<CharT, StrT>
 
             if let None = err
             {
-                self.words.iter().all(|w| !w.intersects(word)).then_some(CrosswordError::WordNotConnected)
+                (!self.words.is_empty() && self.words.iter().all(|w| !w.intersects(word))).then_some(CrosswordError::WordNotConnected)
             }
             else { err }
         }
