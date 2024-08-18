@@ -1,5 +1,4 @@
 use std::collections::BTreeSet;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use crate::{placed_word::PlacedWord, traits::{CrosswordChar, CrosswordString}, word::{Direction, Position, Word}};
@@ -91,7 +90,7 @@ impl CrosswordSettings
 }
 
 /// Error type for possible issues with positioning of two [words](PlacedWord) in [crossword](Crossword)
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum WordCompatibilityError
 {
     #[error("Words are side by side with each other, when the setting is not set.")]
@@ -202,7 +201,7 @@ impl Default for WordCompatibilitySettings
 
 
 /// Error type for possible errors when working with [crosswords](Crossword)
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Clone, Eq, PartialEq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum CrosswordError<CharT: CrosswordChar, StrT: CrosswordString<CharT>>
 {
     #[error("The word is already in the crossword. Word: {0}")]
